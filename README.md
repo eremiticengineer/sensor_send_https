@@ -1,8 +1,8 @@
 # Sensor Send HTTPS
 
-A simple component based HTTPS project for sending sensor data to a website via HTTPS POST.
+A simple ESP32 component based HTTPS project for sending sensor data to a website via HTTPS POST.
 
-The project uses ESP-IDF 6
+The project uses ESP-IDF 6.
 
 ## Set up the default sdkconfig
 ```
