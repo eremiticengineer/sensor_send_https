@@ -2758,7 +2758,7 @@ CONFIG_SENSOR_SEND_WEB_SERVER="www.your-server.com"
 # default:
 CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT="443"
 # default:
-CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL="www.your-server.com/iot/sensor.php"
+CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL="https://www.your-server.com/iot/sensor.php"
 # end of SensorSend Configuration
 
 #
