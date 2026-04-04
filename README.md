@@ -1,8 +1,18 @@
 # Sensor Send HTTPS
 
-A simple ESP32 component based HTTPS project for sending sensor data to a website via HTTPS POST.
+A simple ESP32 component based project for sending sensor data to a website over wifi via HTTPS POST.
 
-The project uses ESP-IDF 6.
+The project is adapted from the esp-idf v6 sample:
+```
+~/.espressif/v6.0.0/esp-idf/examples/protocols/https_mbedtls
+```
+and refactored into components implemented as C++ classes.
+
+Developed on a Raspberry Pi 4b+.
+
+## Requirements
+* ESP-IDF v6.0.0+
+* An ESP32 board with onboard wifi.
 
 ## Set up the default sdkconfig
 ```
