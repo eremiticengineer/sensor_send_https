@@ -23,3 +23,12 @@ idf.py menuconfig
 Components -> HTTPS Client Configuration
 USER_AGENT
 ```
+
+## Configure sensor data destination
+```
+idf.py menuconfig
+Components -> SensorSend Configuration
+CONFIG_SENSOR_SEND_WEB_SERVER
+CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT
+CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL
+```
