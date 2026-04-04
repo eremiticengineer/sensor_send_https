@@ -2753,12 +2753,10 @@ CONFIG_VFS_INITIALIZE_DEV_NULL=y
 #
 # SensorSend Configuration
 #
-# default:
-CONFIG_SENSOR_SEND_WEB_SERVER="www.your-server.com"
+CONFIG_SENSOR_SEND_WEB_SERVER="www.server.com"
 # default:
 CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT="443"
-# default:
-CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL="https://www.your-server.com/iot/sensor.php"
+CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL="https://www.server.com/esp32/sensor.php"
 # end of SensorSend Configuration
 
 #
