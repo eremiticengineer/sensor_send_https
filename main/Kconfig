@@ -1,0 +1,21 @@
+menu "SensorSend Configuration"
+
+config SENSOR_SEND_WEB_SERVER
+    string "The domain name of the web server hosting the sensor data"
+    default "www.your-server.com"
+    help
+      Enter the domain name of the web server hosting the sensor data
+
+config SENSOR_SEND_WEB_SERVER_HTTPS_PORT
+    string "The HTTPS port of the web server hosting the sensor data"
+    default "443"
+    help
+      Enter the HTTPS port of the web server hosting the sensor data
+
+config SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL
+    string "The full HTTPS POST url on the web server hosting the sensor data"
+    default "www.your-server.com/iot/sensor.php"
+    help
+      Enter the full HTTPS POST url on the web server hosting the sensor data
+
+endmenu

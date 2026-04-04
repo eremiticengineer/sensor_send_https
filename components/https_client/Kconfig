@@ -1,0 +1,9 @@
+menu "HTTPS Client Configuration"
+
+config USER_AGENT
+    string "UserAgent Name"
+    default "esp-idf/1.0 esp32"
+    help
+      Enter the name of your UserAgent
+
+endmenu
