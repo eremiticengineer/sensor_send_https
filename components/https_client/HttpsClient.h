@@ -1,5 +1,5 @@
 #pragma once
-#include <string.h>
+#include <string>
 #include "mbedtls/ssl.h"
 
 class HttpsClient {
@@ -9,8 +9,8 @@ public:
 
     bool connect();
     void disconnect();
-    bool get(const char* path);
-    bool post(const char* path, const char* json_data);
+    esp_err_t get(const char* path, std::string* out_body = nullptr, std::string* headers = nullptr);
+    bool post(const char* path, const char* json_data, std::string* out_body = nullptr, std::string* out_headers = nullptr);
 
 private:
     //bool write_request(const char* request);
