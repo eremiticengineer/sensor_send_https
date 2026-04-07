@@ -32,7 +32,9 @@ mbedtls_x509_crt cacert_;
 mbedtls_ssl_config conf_;
 mbedtls_net_context server_fd_;
 
-bool write_request(const char* request);
+bool write_request(const char* request,
+    std::string* out_body = nullptr,
+    std::string* out_headers = nullptr);
 
 HttpsClient::HttpsClient(const char* server, const char* port)
     : server_(server), port_(port), connected_(false) {
@@ -120,21 +122,32 @@ void HttpsClient::disconnect() {
 }
 
 // Simple GET request
-bool HttpsClient::get(const char* path) {
-    if (!connected_) return false;
+esp_err_t HttpsClient::get(const char* path,
+    std::string* out_body,
+    std::string* out_headers) {
+    if (!connected_) return ESP_ERR_INVALID_STATE;
 
-    std::string request = "GET ";
-    request += path;
-    request += " HTTP/1.0\r\n";
-    request += "Host: ";
-    request += server_;
-    request += "\r\nUser-Agent: esp-idf/1.0 esp32\r\n\r\n";
+    char request[512];
+    snprintf(request, sizeof(request),
+             "GET %s HTTP/1.0\r\n"
+             "Host: %s\r\n"
+             "User-Agent: %s\r\n"
+             "\r\n",
+             path,
+             server_,
+             CONFIG_USER_AGENT);
 
-    return write_request(request.c_str());
+    if (!write_request(request, out_body, out_headers)) {
+        ESP_LOGE(TAG, "Failed to write request");
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
 }
 
 // Simple POST request with JSON
-bool HttpsClient::post(const char* path, const char* json_data) {
+bool HttpsClient::post(const char* path, const char* json_data,
+        std::string* out_body, std::string* out_headers) {
     if (!connected_) return false;
 
     int content_length = strlen(json_data);
@@ -158,38 +171,71 @@ bool HttpsClient::post(const char* path, const char* json_data) {
         return false;
     }
 
-    return write_request(request);
+    return write_request(request, out_body, out_headers);
 }
 
-bool write_request(const char* request) {
+bool write_request(const char* request,
+                   std::string* out_body,
+                   std::string* out_headers)
+{
+    // Write the full request
     size_t written = 0;
-    int ret;
     size_t len = strlen(request);
-
+    int ret;
     while (written < len) {
         ret = mbedtls_ssl_write(&ssl_, (const unsigned char*)request + written, len - written);
         if (ret >= 0) {
             written += ret;
-        } else if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
+        } else if (ret != MBEDTLS_ERR_SSL_WANT_READ &&
+                   ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
             ESP_LOGE(TAG, "mbedtls_ssl_write returned -0x%x", -ret);
             return false;
         }
     }
 
-    // Read and print response (optional)
+    // Read the full response into out_body if provided
+    if (out_body) out_body->clear();
     char buf[512];
-    do {
-        memset(buf, 0, sizeof(buf));
-        ret = mbedtls_ssl_read(&ssl_, (unsigned char*)buf, sizeof(buf)-1);
+    while (true) {
+        ret = mbedtls_ssl_read(&ssl_, reinterpret_cast<unsigned char*>(buf), sizeof(buf));
         if (ret > 0) {
-            printf("%.*s", ret, buf);
+            if (out_body) out_body->append(buf, ret);
         } else if (ret == 0 || ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-            break;
-        } else if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-            ESP_LOGE(TAG, "mbedtls_ssl_read returned -0x%x", -ret);
+            break; // EOF or TLS clean close
+        } else if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+            continue;
+        } else {
+            ESP_LOGE(TAG, "mbedtls_ssl_read error: %d", ret);
             return false;
         }
-    } while (true);
+    }
+
+    if (!out_body || out_body->empty()) {
+        if (out_headers) out_headers->clear();
+        return true; // nothing to split
+    }
+
+    // Split headers and body
+    size_t pos = out_body->find("\r\n\r\n");
+    if (pos == std::string::npos) {
+        pos = out_body->find("\n\n"); // fallback if server uses just LF
+    }
+
+    if (pos != std::string::npos) {
+        if ((out_headers) && (out_body)) {
+            out_headers->assign(*out_body, 0, pos);
+        }
+        // skip delimiter
+        pos += (out_body->compare(pos, 4, "\r\n\r\n") == 0 ? 4 : 2);
+        *out_body = out_body->substr(pos);
+    } else {
+        // no headers found, treat entire response as body
+        if (out_headers) out_headers->clear();
+    }
+
+    // Null-terminate body for cJSON if needed
+    out_body->push_back('\0');
 
     return true;
 }
