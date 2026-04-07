@@ -42,3 +42,8 @@ CONFIG_SENSOR_SEND_WEB_SERVER
 CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT
 CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL
 ```
+
+# getting flash size of device
+```
+esptool --port /dev/ttyUSB0 flash-id
+```
