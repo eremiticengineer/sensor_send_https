@@ -7,6 +7,7 @@
 #include "HttpsClient.h"
 #include "JsonParser.h"
 #include "NvsStorage.h"
+#include "A7670.h"
 
 #include "sdkconfig.h"
 
@@ -23,6 +24,7 @@ extern "C" void app_main()
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1000 ms = 1 second
     }
 
+/*
     static const char* otaJson = R"(
     {
         "name": "sensor_send_https",
@@ -116,4 +118,17 @@ extern "C" void app_main()
     ESP_LOGI("POST", "POSTED with response %s", response ? "true" : "false");
     ESP_LOGI("POST", "content: %s", content.c_str());
     ESP_LOGI("POST", "headers: %s", headers.c_str());
+*/
+
+    A7670Modem modem;
+    modem.begin(CONFIG_PHONE_NUMBER_FOR_RESPONSE, "LilyGo A7670 Device Started from esp-idf v6");
+
+    std::string url = "https://";
+    std::string json = "{\"temperature\":25.3,\"humidity\":60}";
+    std::string apiKey = "";
+    if (modem.httpsPOST(url, json, apiKey)) {
+        ESP_LOGI("MAIN", "POST succeeded");
+    } else {
+        ESP_LOGE("MAIN", "POST failed");
+    }
 }
