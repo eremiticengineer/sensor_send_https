@@ -2759,6 +2759,12 @@ CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL="https://www.server.com/esp32/senso
 # end of SensorSend Configuration
 
 #
+# A7670 Configuration
+#
+CONFIG_PHONE_NUMBER_FOR_RESPONSE=""
+# end of A7670 Configuration
+
+#
 # HTTPS Client Configuration
 #
 CONFIG_USER_AGENT=""
