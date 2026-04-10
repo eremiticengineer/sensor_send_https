@@ -11,6 +11,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <sstream>
 
 // From:
 // https://github.com/Xinyuan-LilyGO/LilyGo-Modem-Series/blob/main/examples/HttpsBuiltlnPost/utilities.h
@@ -47,6 +48,29 @@ static const char* TAG = "A7670Modem";
 
 static uart_port_t uartNum;
 static TaskHandle_t smsTaskHandle;
+
+std::string extractSingleAtLine(const std::string &raw, const std::string &prefix)
+{
+    std::istringstream stream(raw);
+    std::string line;
+
+    while (std::getline(stream, line)) {
+        // trim CR
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+
+        // trim leading spaces
+        size_t first = line.find_first_not_of(" \t");
+        if (first != std::string::npos)
+            line = line.substr(first);
+
+        if (line.rfind(prefix, 0) == 0) { // starts with prefix
+            return line;
+        }
+    }
+
+    return "";
+}
 
 std::string extractHttpSection(const std::string &raw, const std::string &sectionPrefix) {
     // Find section start
@@ -653,6 +677,18 @@ bool A7670Modem::httpsPOST(const std::string &url, const std::string &json_data,
 {
     ESP_LOGI(TAG, "Starting HTTPS POST...");
 
+    writeCommand("AT+QNWINFO");
+    std::string raw1 = readResponse(2000);
+    ESP_LOGI(TAG, "=======================================");
+    ESP_LOGI(TAG, "QNWINFO:");
+    ESP_LOGI(TAG, "%s", raw1.c_str());
+    ESP_LOGI(TAG, "=======================================");
+    std::string qnwinfo = extractSingleAtLine(raw1, "+QNWINFO:");
+    ESP_LOGI(TAG, "=======================================");
+    ESP_LOGI(TAG, "QNWINFO:");
+    ESP_LOGI(TAG, "%s", qnwinfo.c_str());
+    ESP_LOGI(TAG, "=======================================");
+
     // Ensure PDP context is active
     writeCommand("AT+CGACT=1,1");
     if (readResponse(2000).find("OK") == std::string::npos) {
@@ -764,39 +800,54 @@ bool A7670Modem::httpsPOST(const std::string &url, const std::string &json_data,
     ESP_LOGI(TAG, "%s", body.c_str());
     ESP_LOGI(TAG, "=======================================");
 
-    /* GET */
+    writeCommand("AT+HTTPTERM"); readResponse(2000);
+
+    return true;
+}
+
+bool A7670Modem::httpsGET(const std::string &url) {
     // Ensure PDP context is active
     writeCommand("AT+CGACT=1,1");
     if (readResponse(2000).find("OK") == std::string::npos) {
         ESP_LOGE(TAG, "Failed to activate PDP context");
         return false;
     }
+
     // Close any previous HTTP session
     writeCommand("AT+HTTPTERM");
     readResponse(2000); // ignore ERROR if no previous session
+
     // Init HTTP service
     writeCommand("AT+HTTPINIT");
     if (readResponse(2000).find("OK") == std::string::npos) {
         ESP_LOGE(TAG, "HTTPINIT failed");
         return false;
     }
+
     // Set SSL/TLS version (TLS 1.2)
     writeCommand("AT+CSSLCFG=\"sslversion\",0,4");
     readResponse(2000);
+
     // Enable SNI
     writeCommand("AT+CSSLCFG=\"enableSNI\",0,1");
     readResponse(2000);
-    writeCommand("AT+HTTPPARA=\"URL\",\"https://\"");
+
+    // Set the URL
+    std::string setUrlCommand = "AT+HTTPPARA=\"URL\",\"" + url + "\"";
+    writeCommand(setUrlCommand);
     if (readResponse(2000).find("OK") == std::string::npos) {
         ESP_LOGE(TAG, "Failed to set GET URL");
         return false;
     }
+
     // Set user-agent
     writeCommand("AT+HTTPPARA=\"USERDATA\",\"User-Agent: TinyGSM/ESP-IDF\"");
     readResponse(2000);
     writeCommand("AT+HTTPACTION=0");
+
     // 2. Wait for +HTTPACTION
-    start = esp_timer_get_time();
+    std::string resp;
+    size_t start = esp_timer_get_time();
     while ((esp_timer_get_time() - start) < 15000000) {
         std::string line = readLine(500);
         if (!line.empty()) {
@@ -811,24 +862,26 @@ bool A7670Modem::httpsPOST(const std::string &url, const std::string &json_data,
 
     // 3. Query length
     writeCommand("AT+HTTPREAD?");
-    header = readResponse(2000); // +HTTPREAD: <len>
-    len = parseLen(header); // extract the available length
+    std::string header = readResponse(2000); // +HTTPREAD: <len>
+    int len = parseLen(header); // extract the available length
+
     // 1. Send HTTPREAD
+    char cmd[64];
     snprintf(cmd, sizeof(cmd), "AT+HTTPREAD=0,%d", len);
     writeCommand(cmd);
-
-    raw = readResponse(2000);
+    
+    std::string raw = readResponse(2000);
 
     ESP_LOGI(TAG, "GET RESPONSE START");
     ESP_LOGI(TAG, "%s", raw.c_str());
     ESP_LOGI(TAG, "GET RESPONE STOP");
-    body = extractHttpSection(raw, "+HTTPREAD:");
+    std::string body = extractHttpSection(raw, "+HTTPREAD:");
     ESP_LOGI(TAG, "=======================================");
     ESP_LOGI(TAG, "HTTPS RESPONSE:");
     ESP_LOGI(TAG, "%s", body.c_str());
     ESP_LOGI(TAG, "=======================================");
+
     writeCommand("AT+HTTPTERM"); readResponse(2000);
 
     return true;
 }
-
