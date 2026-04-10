@@ -131,4 +131,16 @@ extern "C" void app_main()
     } else {
         ESP_LOGE("MAIN", "POST failed");
     }
+
+    url = "https://";
+    if (modem.httpsGET(url)) {
+        ESP_LOGI("MAIN", "GET succeeded");
+    } else {
+        ESP_LOGE("MAIN", "GET failed");
+    }
+
+    modem.startSMSListener();
+    while(true) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+    }
 }
