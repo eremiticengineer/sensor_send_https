@@ -4,7 +4,6 @@
 
 class A7670Modem {
 public:
-//    A7670Modem(int uart_num, int tx_pin, int rx_pin, int dtr_pin, int power_pin, int led_pin);
     A7670Modem();
     ~A7670Modem();
 
@@ -20,12 +19,7 @@ public:
     bool sendSMS(const std::string& number, const std::string& message);
 
     bool httpsPOST(const std::string &url, const std::string &json_data, const std::string &apiKey);
-bool httpsPost(
-    const std::string &url,
-    const std::string &json_data,
-    const std::string &userAgent,
-    const std::string &apiKey,
-    std::string &responseBody);
+    bool httpsGET(const std::string &url);
 
 private:
     int txPin, rxPin;
