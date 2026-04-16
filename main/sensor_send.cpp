@@ -123,16 +123,16 @@ extern "C" void app_main()
     A7670Modem modem;
     modem.begin(CONFIG_PHONE_NUMBER_FOR_RESPONSE, "LilyGo A7670 Device Started from esp-idf v6");
 
-    std::string url = "https://";
+    std::string url = CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_IMAGE_UPLOAD_URL;
     std::string json = "{\"temperature\":25.3,\"humidity\":60}";
-    std::string apiKey = "";
+    std::string apiKey = CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_IMAGE_UPLOAD_API_KEY;
     if (modem.httpsPOST(url, json, apiKey)) {
         ESP_LOGI("MAIN", "POST succeeded");
     } else {
         ESP_LOGE("MAIN", "POST failed");
     }
 
-    url = "https://";
+    url = CONFIG_SENSOR_SEND_OTA_URL;
     if (modem.httpsGET(url)) {
         ESP_LOGI("MAIN", "GET succeeded");
     } else {
