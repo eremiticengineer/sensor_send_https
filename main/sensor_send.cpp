@@ -44,7 +44,9 @@ extern "C" void app_main()
             parser.getDate().c_str());
     }
     ESP_LOGI("STACK", "************ After JSON: %u", uxTaskGetStackHighWaterMark(NULL));
+*/
 
+/*
     ESP_LOGI("STACK", "************ Before NvsStorage: %u", uxTaskGetStackHighWaterMark(NULL));
     NvsStorage storage("ota_data");
     storage.init();
@@ -63,7 +65,9 @@ extern "C" void app_main()
         ESP_LOGI("OTA", "string exists in nvs \"%s\"", test.c_str());
     }
     ESP_LOGI("STACK", "************ After NvsStorage: %u", uxTaskGetStackHighWaterMark(NULL));
+*/
 
+/*
     ESP_LOGI("STACK", "************ Before Wifi Connect: %u", uxTaskGetStackHighWaterMark(NULL));
     WifiClient wifi;
     wifi.connect(CONFIG_WIFI_SSID, CONFIG_WIFI_PASSWORD);
@@ -71,7 +75,9 @@ extern "C" void app_main()
 
     ESP_LOGI("STACK", "************ Before HTTPS Connect: %u", uxTaskGetStackHighWaterMark(NULL));
     HttpsClient client(CONFIG_SENSOR_SEND_WEB_SERVER, CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT);
+*/
 
+/*
     std::string content;
     std::string headers;
 
