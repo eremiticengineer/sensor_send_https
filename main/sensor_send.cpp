@@ -3,14 +3,41 @@
 #include "esp_event.h"
 #include "esp_log.h"
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+
 #include "WifiClient.h"
 #include "HttpsClient.h"
 #include "JsonParser.h"
 #include "NvsStorage.h"
+#include "ImageReceiver.h"
 
 #include "sdkconfig.h"
 
+static const char *TAG = "ESP32CAM";
+
+static QueueHandle_t imageQueue = nullptr;
+
 static const std::string POST_DATA = "{\"SensorSend\":\"https_mbedtls_espidf6\"}";
+
+static void image_consumer_task(void* arg)
+{
+    QueueHandle_t q = static_cast<QueueHandle_t>(arg);
+
+    ImageReceiver::ImageMessage msg;
+
+    while (true) {
+        if (xQueueReceive(q, &msg, portMAX_DELAY)) {
+            ESP_LOGI(TAG, "Received image: %u bytes", msg.len);
+
+            if (msg.data != nullptr) {
+                free(msg.data);
+                ESP_LOGI(TAG, "Freed image buffer");
+            }
+        }
+    }
+}
 
 extern "C" void app_main()
 {
@@ -83,6 +110,31 @@ extern "C" void app_main()
             parser.getDate().c_str());
     }
 
+    imageQueue = xQueueCreate(3, sizeof(ImageReceiver::ImageMessage));
+    if (!imageQueue) {
+        ESP_LOGE(TAG, "Failed to create queue");
+        return;
+    }
+
+    xTaskCreate(
+        image_consumer_task,
+        "image_consumer",
+        4096,
+        imageQueue,
+        5,
+        nullptr
+    );
+    
+    ImageReceiver imageReceiver(1);
+    imageReceiver.setQueue(imageQueue);
+    err = imageReceiver.init();
+    if (ESP_OK != err) {
+        ESP_LOGE(TAG, "failed to init ImageReceiver");
+        return;
+    }
+    imageReceiver.start();
+
+    /*
     // POST a file to the server over https
     ESP_LOGI("POST", "POSTING...");
     content.clear();
@@ -100,4 +152,9 @@ extern "C" void app_main()
     ESP_LOGI("POST", "POSTED with response %s", response ? "true" : "false");
     ESP_LOGI("POST", "content: %s", content.c_str());
     ESP_LOGI("POST", "headers: %s", headers.c_str());
+    */
+
+    while (1) {
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 }
