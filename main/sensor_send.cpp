@@ -10,7 +10,7 @@
 
 #include "sdkconfig.h"
 
-static const char *POST_DATA = "{\"SensorSend\":\"https_mbedtls_espidf6\"}";
+static const std::string POST_DATA = "{\"SensorSend\":\"https_mbedtls_espidf6\"}";
 
 extern "C" void app_main()
 {
@@ -93,7 +93,9 @@ extern "C" void app_main()
     }
     bool response = client.post(CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_PATH,
         CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_API_KEY,
-        POST_DATA, &content, &headers);
+        reinterpret_cast<const uint8_t*>(POST_DATA.data()),
+        POST_DATA.size(),
+        &content, &headers);
     client.disconnect();
     ESP_LOGI("POST", "POSTED with response %s", response ? "true" : "false");
     ESP_LOGI("POST", "content: %s", content.c_str());
