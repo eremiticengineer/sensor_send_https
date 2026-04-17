@@ -23,25 +23,6 @@ extern "C" void app_main()
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1000 ms = 1 second
     }
 
-    // Test the JSON parsing
-    static const char* otaJson = R"(
-    {
-        "name": "sensor_send_https",
-        "version": "1.0.0",
-        "date": "05-04-2026"
-    }
-    )";
-    JsonParser parser;
-    if (!parser.parse(otaJson)) {
-        ESP_LOGE("OTA", "cannot parse JSON");
-    }
-    else {
-        ESP_LOGI("OTA", "New OTA available: %s %s %s",
-            parser.getName().c_str(),
-            parser.getVersion().c_str(),
-            parser.getDate().c_str());
-    }
-
     // Test the NVS storage
     NvsStorage storage("ota_data");
     storage.init();
@@ -65,7 +46,9 @@ extern "C" void app_main()
     wifi.connect(CONFIG_WIFI_SSID, CONFIG_WIFI_PASSWORD);
 
     // Prepare an https client
-    HttpsClient client(CONFIG_SENSOR_SEND_WEB_SERVER, CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT);
+    HttpsClient client(CONFIG_SENSOR_SEND_WEB_SERVER,
+        CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT,
+        CONFIG_SENSOR_SEND_USER_AGENT);
 
     std::string content;
     std::string headers;
@@ -87,6 +70,7 @@ extern "C" void app_main()
     }
 
     // ...and parse the returned JSON
+    JsonParser parser;
     const char* json_cstr = content.c_str();
     ESP_LOGI("JSON_FROM_SERVER","%s", content.c_str());
     if (!parser.parse(json_cstr)) {
