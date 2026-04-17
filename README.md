@@ -1,6 +1,6 @@
 # Sensor Send HTTPS
 
-A simple ESP32 component based project for sending sensor data to a website over wifi via HTTPS POST.
+A simple ESP32 component based project for sending sensor data to a website over wifi via HTTPS POST. The app connects to wifi, downloads a JSON file over https and parses it. It then POSTs a file over https and receives the POST response content and headers and disconnects from the server.
 
 The project is adapted from the esp-idf v6 sample:
 ```
@@ -14,10 +14,11 @@ Developed on a Raspberry Pi 4b+.
 * ESP-IDF v6.0.0+
 * An ESP32 board with onboard wifi.
 
-## Set up the default sdkconfig
+## sdkconfig defaults
 ```
-cp sdkconfig.defaults sdkconfig
+sdkconfig.defaults
 ```
+contains project defaults.
 
 ## Configure WifiClient
 ```
@@ -27,23 +28,13 @@ WIFI_SSID
 WIFI_PASSWORD
 ```
 
-## Configure HttpsClient
-```
-idf.py menuconfig
-Components -> HTTPS Client Configuration
-USER_AGENT
-```
-
-## Configure sensor data destination
+## Configure HTTPS options
 ```
 idf.py menuconfig
 Components -> SensorSend Configuration
-CONFIG_SENSOR_SEND_WEB_SERVER
-CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_PORT
-CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL
 ```
 
-# getting flash size of device
+## getting flash size of device
 ```
 esptool --port /dev/ttyUSB0 flash-id
 ```
