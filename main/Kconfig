@@ -12,25 +12,19 @@ config SENSOR_SEND_WEB_SERVER_HTTPS_PORT
     help
       Enter the HTTPS port of the web server hosting the sensor data
 
-config SENSOR_SEND_WEB_SERVER_HTTPS_POST_URL
+config SENSOR_SEND_WEB_SERVER_HTTPS_POST_PATH
     string "The full HTTPS POST url on the web server hosting the sensor data"
     default "www.server.com/esp32/sensor.php"
     help
       Enter the full HTTPS POST url on the web server hosting the sensor data
 
-config SENSOR_SEND_WEB_SERVER_HTTPS_IMAGE_UPLOAD_URL
-    string "The full HTTPS POST url on the web server hosting the image upload"
-    default "https://server.com/upload.php"
-    help
-      Enter the full HTTPS POST url on the web server hosting the image upload
-
-config SENSOR_SEND_WEB_SERVER_HTTPS_IMAGE_UPLOAD_API_KEY
+config SENSOR_SEND_WEB_SERVER_HTTPS_POST_API_KEY
     string "The api key for the image upload"
     default ""
     help
       Enter the api key for the image upload
 
-config SENSOR_SEND_OTA_URL
+config SENSOR_SEND_OTA_PATH
     string "The url of the ota information file"
     default "https://server.com/ota.json"
     help
