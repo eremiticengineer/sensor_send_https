@@ -1,5 +1,11 @@
 menu "SensorSend Configuration"
 
+config SENSOR_SEND_USER_AGENT
+    string "UserAgent Name"
+    default "esp-idf/1.0 esp32"
+    help
+      Enter the name of your UserAgent
+
 config SENSOR_SEND_WEB_SERVER
     string "The domain name of the web server hosting the sensor data"
     default "www.server.com"
