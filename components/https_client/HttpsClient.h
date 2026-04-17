@@ -4,7 +4,7 @@
 
 class HttpsClient {
 public:
-    HttpsClient(const char* server, const char* port);
+    HttpsClient(const char* server, const char* port, const char* userAgent);
     ~HttpsClient();
 
     bool connect();
@@ -17,5 +17,6 @@ private:
 
     const char* server_;
     const char* port_;
+    const char* userAgent_;
     bool connected_;
 };

@@ -36,8 +36,8 @@ bool write_request(const char* request,
     std::string* out_body = nullptr,
     std::string* out_headers = nullptr);
 
-HttpsClient::HttpsClient(const char* server, const char* port)
-    : server_(server), port_(port), connected_(false) {
+HttpsClient::HttpsClient(const char* server, const char* port, const char* userAgent)
+    : server_(server), port_(port), userAgent_(userAgent), connected_(false) {
     mbedtls_ssl_init(&ssl_);
     mbedtls_x509_crt_init(&cacert_);
     mbedtls_ssl_config_init(&conf_);
@@ -135,7 +135,7 @@ esp_err_t HttpsClient::get(const char* path,
              "\r\n",
              path,
              server_,
-             CONFIG_USER_AGENT);
+             userAgent_);
 
     if (!write_request(request, out_body, out_headers)) {
         ESP_LOGE(TAG, "Failed to write request");
@@ -163,7 +163,7 @@ bool HttpsClient::post(const char* path, const char* apiKey, const char* json_da
                     "%s",
                     path,
                     server_,
-                    CONFIG_USER_AGENT,  // <- replace the hardcoded string
+                    userAgent_,
                     content_length,
                     apiKey,
                     json_data);
