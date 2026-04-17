@@ -11,7 +11,6 @@ idf_component_register(SRCS "sensor_send.cpp"
                                   https_client
                                   json_parser
                                   nvs_storage
-                                  a7670
                     INCLUDE_DIRS ".")
 
 set(COMPONENT_KCONFIG_DIRS "${CMAKE_CURRENT_SOURCE_DIR}")
