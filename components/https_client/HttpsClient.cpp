@@ -146,7 +146,7 @@ esp_err_t HttpsClient::get(const char* path,
 }
 
 // Simple POST request with JSON
-bool HttpsClient::post(const char* path, const char* json_data,
+bool HttpsClient::post(const char* path, const char* apiKey, const char* json_data,
         std::string* out_body, std::string* out_headers) {
     if (!connected_) return false;
 
@@ -158,13 +158,15 @@ bool HttpsClient::post(const char* path, const char* json_data,
                     "User-Agent: %s\r\n"
                     "Content-Type: application/json\r\n"
                     "Content-Length: %d\r\n"
+                    "X-API-KEY: %s\r\n"
                     "\r\n"
                     "%s",
                     path,
                     server_,
                     CONFIG_USER_AGENT,  // <- replace the hardcoded string
                     content_length,
-                    json_data);    
+                    apiKey,
+                    json_data);
 
     if (n <= 0 || n >= (int)sizeof(request)) {
         ESP_LOGE(TAG, "POST request too large for buffer");
