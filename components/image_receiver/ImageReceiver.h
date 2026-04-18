@@ -19,6 +19,14 @@ private:
     static void taskEntry(void* arg);
     void run();
 
+
+// enum State {
+//     WAIT_OK,
+//     WAIT_IMG_PREFIX,
+//     READ_LEN,
+//     READ_IMAGE
+// };
+
     enum State {
         WAIT_OK,
         WAIT_IMG_TAG,
