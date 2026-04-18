@@ -11,7 +11,7 @@
 #include "HttpsClient.h"
 #include "JsonParser.h"
 #include "NvsStorage.h"
-#include "ImageReceiver.h"
+#include "UartAPI.h"
 
 #include "sdkconfig.h"
 
@@ -25,18 +25,16 @@ static void image_consumer_task(void* arg)
 {
     QueueHandle_t q = static_cast<QueueHandle_t>(arg);
 
-    ImageReceiver::ImageMessage msg;
+    // while (true) {
+    //     if (xQueueReceive(q, &msg, portMAX_DELAY)) {
+    //         ESP_LOGI(TAG, "Received image: %u bytes", msg.len);
 
-    while (true) {
-        if (xQueueReceive(q, &msg, portMAX_DELAY)) {
-            ESP_LOGI(TAG, "Received image: %u bytes", msg.len);
-
-            if (msg.data != nullptr) {
-                free(msg.data);
-                ESP_LOGI(TAG, "Freed image buffer");
-            }
-        }
-    }
+    //         if (msg.data != nullptr) {
+    //             free(msg.data);
+    //             ESP_LOGI(TAG, "Freed image buffer");
+    //         }
+    //     }
+    // }
 }
 
 extern "C" void app_main()
@@ -110,22 +108,27 @@ extern "C" void app_main()
             parser.getDate().c_str());
     }
 
-    imageQueue = xQueueCreate(3, sizeof(ImageReceiver::ImageMessage));
-    if (!imageQueue) {
-        ESP_LOGE(TAG, "Failed to create queue");
-        return;
-    }
+    // imageQueue = xQueueCreate(3, sizeof(ImageReceiver::ImageMessage));
+    // if (!imageQueue) {
+    //     ESP_LOGE(TAG, "Failed to create queue");
+    //     return;
+    // }
 
-    xTaskCreate(
-        image_consumer_task,
-        "image_consumer",
-        4096,
-        imageQueue,
-        5,
-        nullptr
-    );
+    // xTaskCreate(
+    //     image_consumer_task,
+    //     "image_consumer",
+    //     4096,
+    //     imageQueue,
+    //     5,
+    //     nullptr
+    // );
     
-    ImageReceiver imageReceiver(1);
+    UartAPI uartAPI;
+    uartAPI.init(2, 17, 16);
+    uartAPI.start();
+
+    /*
+    ImageReceiver imageReceiver(2);
     imageReceiver.setQueue(imageQueue);
     err = imageReceiver.init();
     if (ESP_OK != err) {
@@ -133,6 +136,7 @@ extern "C" void app_main()
         return;
     }
     imageReceiver.start();
+    */
 
     /*
     // POST a file to the server over https
