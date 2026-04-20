@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "driver/uart.h"
+#include "driver/gpio.h"
 
 static const char *TAG = "ESP32CAM";
 
@@ -32,10 +33,11 @@ esp_err_t UartAPI::init(int uart_num, int txPin, int rxPin) {
         err = uart_param_config(_uart_num, &uart_config);
         if (ESP_OK == err) {
             err = uart_set_pin(_uart_num,
-                            txPin,
-                            rxPin,
-                            UART_PIN_NO_CHANGE,
-                            UART_PIN_NO_CHANGE);
+                                txPin,
+                                rxPin,
+                                UART_PIN_NO_CHANGE,
+                                UART_PIN_NO_CHANGE);
+            gpio_set_pull_mode(static_cast<gpio_num_t>(rxPin), GPIO_PULLUP_ONLY);
             status = ESP_OK;
             ESP_LOGI(TAG, "UART ready");
             if (ESP_OK != err) {
@@ -68,20 +70,8 @@ void UartAPI::task_wrapper(void* arg) {
 void UartAPI::run() {
     uint8_t rx_buf[128];
 
-    int written = uart_write_bytes(_uart_num, "#ok#", 4);
-    if (written < 0) {
-        ESP_LOGE(TAG, "cannot write to uart");
-    }
-    else {
-        ESP_LOGI(TAG, "wrote %d bytes", written);
-    }
-
     while (true)
     {
-//        vTaskDelay(pdMS_TO_TICKS(1000));
-
-        ESP_LOGI(TAG, "#ok#");
-
         // int len;
         // do {
         //     len = uart_read_bytes(_uart_num, rx_buf, sizeof(rx_buf), pdMS_TO_TICKS(200));
@@ -97,13 +87,24 @@ void UartAPI::run() {
         ESP_LOGI(TAG, "read %d bytes from uart", len);
         if (len > 0)
         {
+// for (int i = 0; i < len; i++) {
+//     printf("%02X ", rx_buf[i]);
+// }
+// printf("\n");            
             process_uart_bytes(rx_buf, len);
         }
     }
 }  // void UartAPI::run() {
 
-
-
+void UartAPI::request(const std::string& request) {
+    int written = uart_write_bytes(_uart_num, request.c_str(), request.length());
+    if (written < 0) {
+        ESP_LOGE(TAG, "cannot write to uart");
+    }
+    else {
+        ESP_LOGI(TAG, "wrote %s", request.c_str());
+    }
+}
 
 void UartAPI::on_command(const std::string& cmd) {
   ESP_LOGI(TAG, "on_command %s", cmd.c_str());
@@ -116,11 +117,6 @@ void UartAPI::on_response(const std::string& resp) {
 void UartAPI::on_data(const uint8_t* data, size_t len) {
   ESP_LOGI(TAG, "on_data %d, %s", len, data);
 }
-
-
-
-
-
 
 static std::string buffer;
 static std::string cmd;
@@ -137,54 +133,53 @@ static std::vector<uint8_t> data;
  */
 void UartAPI::process_uart_bytes(const uint8_t* input, size_t len)
 {
-    // 1. append incoming bytes
+    // Append incoming bytes
     buffer.append(reinterpret_cast<const char*>(input), len);
 
-    // safety: prevent runaway buffer if desync happens
+    // Hard safety cap
     if (buffer.size() > 4096)
     {
         buffer.clear();
         return;
     }
 
-    // 2. parse as many complete frames as possible
     while (true)
     {
-        // -----------------------------
-        // COMMAND FRAME: #...#
-        // -----------------------------
-        size_t cmd_start = buffer.find('#');
+        // Find next possible frame start
+        size_t cmd = buffer.find('#');
+        size_t resp = buffer.find('@');
+        size_t data = buffer.find('!');
 
-        // RESPONSE FRAME: @...@
-        size_t resp_start = buffer.find('@');
+        size_t first = std::string::npos;
 
-        // DATA FRAME: !LEN!...
-        size_t data_start = buffer.find('!');
+        if (cmd != std::string::npos) first = cmd;
+        if (resp != std::string::npos) first = (first == std::string::npos) ? resp : std::min(first, resp);
+        if (data != std::string::npos) first = (first == std::string::npos) ? data : std::min(first, data);
 
-        // choose earliest valid frame start
-        size_t first = std::min({cmd_start, resp_start, data_start});
-
+        // No frame markers at all → drop garbage safely
         if (first == std::string::npos)
+        {
+            buffer.clear();
             break;
+        }
 
-        // erase garbage before frame start
+        // Drop leading garbage
         if (first > 0)
             buffer.erase(0, first);
 
-        // refresh positions after trimming
         if (buffer.empty())
             break;
 
         char type = buffer[0];
 
-        // -----------------------------
-        // COMMAND FRAME
-        // -----------------------------
+        // =========================
+        // COMMAND: #...#
+        // =========================
         if (type == '#')
         {
             size_t end = buffer.find('#', 1);
             if (end == std::string::npos)
-                break; // incomplete frame
+                break; // wait for full frame
 
             std::string cmd = buffer.substr(1, end - 1);
             buffer.erase(0, end + 1);
@@ -193,9 +188,9 @@ void UartAPI::process_uart_bytes(const uint8_t* input, size_t len)
             continue;
         }
 
-        // -----------------------------
-        // RESPONSE FRAME
-        // -----------------------------
+        // =========================
+        // RESPONSE: @...@
+        // =========================
         if (type == '@')
         {
             size_t end = buffer.find('@', 1);
@@ -209,25 +204,33 @@ void UartAPI::process_uart_bytes(const uint8_t* input, size_t len)
             continue;
         }
 
-        // -----------------------------
-        // DATA FRAME: !LEN!<bytes>
-        // -----------------------------
+        // =========================
+        // DATA: !LEN!payload
+        // =========================
         if (type == '!')
         {
-            size_t len_sep = buffer.find('!', 1);
-            if (len_sep == std::string::npos)
+            size_t sep = buffer.find('!', 1);
+            if (sep == std::string::npos)
                 break;
 
-            std::string len_str = buffer.substr(1, len_sep - 1);
+            std::string len_str = buffer.substr(1, sep - 1);
+
+            // Validate length string
+            if (len_str.empty())
+            {
+                buffer.erase(0, 1);
+                continue;
+            }
+
             size_t data_len = std::strtoul(len_str.c_str(), nullptr, 10);
 
-            size_t needed = len_sep + 1 + data_len;
+            size_t needed = sep + 1 + data_len;
 
             if (buffer.size() < needed)
                 break; // wait for full payload
 
             const uint8_t* data_ptr =
-                reinterpret_cast<const uint8_t*>(buffer.data() + len_sep + 1);
+                reinterpret_cast<const uint8_t*>(buffer.data() + sep + 1);
 
             on_data(data_ptr, data_len);
 
@@ -235,7 +238,9 @@ void UartAPI::process_uart_bytes(const uint8_t* input, size_t len)
             continue;
         }
 
-        // unknown byte → drop it (resync safety)
+        // =========================
+        // Unknown byte → resync safely
+        // =========================
         buffer.erase(0, 1);
     }
 }
