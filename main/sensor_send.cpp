@@ -161,5 +161,11 @@ extern "C" void app_main()
     while (1) {
         uartAPI.request("#ok#");
         vTaskDelay(pdMS_TO_TICKS(1000));
+
+        uartAPI.request("#sdfsdfsdf#");
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        
+        uartAPI.request("#i:c#");
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
 }
