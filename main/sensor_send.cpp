@@ -159,6 +159,7 @@ extern "C" void app_main()
     */
 
     while (1) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        uartAPI.request("#ok#");
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
