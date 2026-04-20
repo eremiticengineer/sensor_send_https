@@ -15,6 +15,7 @@ public:
   esp_err_t init(int uart_num, int txPin, int rxPin);
   void start();
   void run();
+  void request(const std::string& request);
 
 private:
   TaskHandle_t _taskHandle = nullptr;
