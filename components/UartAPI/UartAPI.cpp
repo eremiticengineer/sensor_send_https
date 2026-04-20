@@ -72,25 +72,12 @@ void UartAPI::run() {
 
     while (true)
     {
-        // int len;
-        // do {
-        //     len = uart_read_bytes(_uart_num, rx_buf, sizeof(rx_buf), pdMS_TO_TICKS(200));
-        //     if (len > 0) {
-        //         process_uart_bytes(rx_buf, len);
-        //     }
-        // } while (len > 0);
-
         int len = uart_read_bytes(_uart_num,
                                 rx_buf,
                                 sizeof(rx_buf),
                                 pdMS_TO_TICKS(20));
-        ESP_LOGI(TAG, "read %d bytes from uart", len);
         if (len > 0)
         {
-// for (int i = 0; i < len; i++) {
-//     printf("%02X ", rx_buf[i]);
-// }
-// printf("\n");            
             process_uart_bytes(rx_buf, len);
         }
     }
