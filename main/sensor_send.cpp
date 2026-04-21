@@ -17,24 +17,25 @@
 
 static const char *TAG = "ESP32CAM";
 
-static QueueHandle_t imageQueue = nullptr;
+static QueueHandle_t jpegQueue = nullptr;
 
 static const std::string POST_DATA = "{\"SensorSend\":\"https_mbedtls_espidf6\"}";
 
-static void image_consumer_task(void* arg)
+static void jpeg_consumer_task(void* arg)
 {
     QueueHandle_t q = static_cast<QueueHandle_t>(arg);
 
-    // while (true) {
-    //     if (xQueueReceive(q, &msg, portMAX_DELAY)) {
-    //         ESP_LOGI(TAG, "Received image: %u bytes", msg.len);
+    UartAPI::JpegPacket pkt;
 
-    //         if (msg.data != nullptr) {
-    //             free(msg.data);
-    //             ESP_LOGI(TAG, "Freed image buffer");
-    //         }
-    //     }
-    // }
+    while (true)
+    {
+        if (xQueueReceive(q, &pkt, portMAX_DELAY) == pdTRUE)
+        {
+            ESP_LOGI("JPEG", "Received frame len=%u", pkt.len);
+
+            free(pkt.data);
+        }
+    }
 }
 
 extern "C" void app_main()
@@ -108,35 +109,24 @@ extern "C" void app_main()
             parser.getDate().c_str());
     }
 
-    // imageQueue = xQueueCreate(3, sizeof(ImageReceiver::ImageMessage));
-    // if (!imageQueue) {
-    //     ESP_LOGE(TAG, "Failed to create queue");
-    //     return;
-    // }
-
-    // xTaskCreate(
-    //     image_consumer_task,
-    //     "image_consumer",
-    //     4096,
-    //     imageQueue,
-    //     5,
-    //     nullptr
-    // );
-    
-    UartAPI uartAPI;
-    uartAPI.init(2, 17, 16);
-    uartAPI.start();
-
-    /*
-    ImageReceiver imageReceiver(2);
-    imageReceiver.setQueue(imageQueue);
-    err = imageReceiver.init();
-    if (ESP_OK != err) {
-        ESP_LOGE(TAG, "failed to init ImageReceiver");
+    jpegQueue = xQueueCreate(3, sizeof(UartAPI::JpegPacket));
+    if (!jpegQueue) {
+        ESP_LOGE(TAG, "Failed to create queue");
         return;
     }
-    imageReceiver.start();
-    */
+
+    xTaskCreate(
+        jpeg_consumer_task,
+        "jpeg_consumer",
+        4096,
+        jpegQueue, // pass the message queue to use
+        5,
+        nullptr
+    );
+    
+    UartAPI uartAPI;
+    uartAPI.init(2, 17, 16, jpegQueue);
+    uartAPI.start();
 
     /*
     // POST a file to the server over https
