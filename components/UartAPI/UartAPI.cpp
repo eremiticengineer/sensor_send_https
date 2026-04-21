@@ -15,8 +15,9 @@ uart_port_t _uart_num;
 
 UartAPI::UartAPI() {}
 
-esp_err_t UartAPI::init(int uart_num, int txPin, int rxPin) {
+esp_err_t UartAPI::init(int uart_num, int txPin, int rxPin, const QueueHandle_t jpegQueue) {
     _uart_num = static_cast<uart_port_t>(uart_num);
+    _jpegQueue = jpegQueue;
 
     esp_err_t status;
 
@@ -379,16 +380,35 @@ void UartAPI::process_uart_bytes(const uint8_t* input, size_t len)
                 ESP_LOGI(TAG, "************************************************ IMAGE_COMPLETE %d", payload_received);
 
                 // At this point jpeg_buffer is valid and complete.
-                // (no queue yet — just holding it for future use)
+
+                // Build packet (ownership transfer)
+                JpegPacket pkt;
+                pkt.data = jpeg_buffer;
+                pkt.len  = payload_received;
+
+                // Send to consumer task
+                if (_jpegQueue != nullptr)
+                {
+                    if (xQueueSend(_jpegQueue, &pkt, pdMS_TO_TICKS(100)) != pdPASS)
+                    {
+                        ESP_LOGE(TAG, "JPEG queue full - dropping frame");
+
+                        // If queue rejected it, we MUST free it here
+                        free(pkt.data);
+                    }
+                }
+                else
+                {
+                    ESP_LOGE(TAG, "_jpegQueue not initialised - freeing frame");
+
+                    // No consumer exists → prevent leak
+                    free(pkt.data);
+                }
 
                 receiving_data = false;
-
-                // reset state (BUT DO NOT free if you still need it later)
                 jpeg_write_index = 0;
                 expected_len = 0;
                 payload_received = 0;
-
-                free(jpeg_buffer);
                 jpeg_buffer = nullptr;
 
                 return;
