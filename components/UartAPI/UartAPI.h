@@ -17,8 +17,16 @@ public:
   void run();
   void request(const std::string& request);
 
+  struct JpegPacket {
+      uint8_t* data;
+      size_t len;
+  };
+
 private:
   TaskHandle_t _taskHandle = nullptr;
+  uint8_t* jpeg_buffer = nullptr;
+  size_t jpeg_write_index = 0;
+  size_t expected_len = 0;
 
   static void task_wrapper(void* arg);
   void process_uart_bytes(const uint8_t* input, size_t len);
