@@ -12,7 +12,7 @@ class UartAPI {
 
 public:
   UartAPI();
-  esp_err_t init(int uart_num, int txPin, int rxPin);
+  esp_err_t init(int uart_num, int txPin, int rxPin, const QueueHandle_t jpegQueue);
   void start();
   void run();
   void request(const std::string& request);
@@ -24,6 +24,7 @@ public:
 
 private:
   TaskHandle_t _taskHandle = nullptr;
+  QueueHandle_t _jpegQueue;
   uint8_t* jpeg_buffer = nullptr;
   size_t jpeg_write_index = 0;
   size_t expected_len = 0;
