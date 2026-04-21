@@ -73,13 +73,19 @@ void UartAPI::run() {
     while (true)
     {
         int len = uart_read_bytes(_uart_num,
-                                rx_buf,
-                                sizeof(rx_buf),
-                                pdMS_TO_TICKS(20));
+                                  rx_buf,
+                                  sizeof(rx_buf),
+                                  pdMS_TO_TICKS(20));
         if (len > 0)
         {
             process_uart_bytes(rx_buf, len);
         }
+
+        // Prevent freertos from resetting the task.
+        // task can monopolise CPU1 during image reception
+        // Task watchdog got triggered. The following tasks/users did not reset the watchdog in time:
+        // - IDLE1 (CPU 1)
+        vTaskDelay(1);
     }
 }  // void UartAPI::run() {
 
@@ -102,12 +108,18 @@ void UartAPI::on_response(const std::string& resp) {
 }
 
 void UartAPI::on_data(const uint8_t* data, size_t len) {
-  ESP_LOGI(TAG, "on_data %d, %s", len, data);
+    ESP_LOGI(TAG, "on_data len=%d", len);
 }
 
 static std::string buffer;
 static std::string cmd;
 static std::vector<uint8_t> data;
+
+static constexpr bool UART_DEBUG = true;
+size_t payload_received = 0;
+bool receiving_data = false;
+size_t expected_len = 0;
+size_t buffer_offset = 0;
 
 /*
  * command frame:
@@ -118,116 +130,392 @@ static std::vector<uint8_t> data;
  * data frame:
  * !94012!<binary bytes>
  */
+
+static constexpr size_t MAX_BUFFER = 4096;
+
+/*
 void UartAPI::process_uart_bytes(const uint8_t* input, size_t len)
 {
     // Append incoming bytes
-    buffer.append(reinterpret_cast<const char*>(input), len);
+    buffer.insert(buffer.end(), input, input + len);
 
-    // Hard safety cap
-    if (buffer.size() > 4096)
+    // Safety cap ONLY in text mode
+    if (!receiving_data && buffer.size() > MAX_BUFFER)
     {
+        ESP_LOGW(TAG, "buffer overflow, clearing");
+        buffer.clear();
+        buffer_offset = 0;
+        return;
+    }
+
+    while (true)
+    {
+        // =========================================================
+        // BINARY MODE (strict streaming, no parser interaction)
+        // =========================================================
+        if (receiving_data)
+        {
+            size_t available = buffer.size();
+            size_t remaining = expected_len - payload_received;
+
+            if (available == 0 || remaining == 0)
+                return;
+
+            size_t to_consume = std::min(available, remaining);
+
+            const uint8_t *ptr = reinterpret_cast<const uint8_t *>(buffer.data());
+
+            on_data(ptr, to_consume);
+
+            payload_received += to_consume;
+
+            // remove consumed bytes from front only
+            buffer.erase(buffer.begin(),
+                         buffer.begin() + to_consume);
+
+            buffer_offset = 0;
+
+            // completion check (ONLY valid exit point)
+            if (payload_received == expected_len)
+            {
+                // if (ptr[to_consume - 2] == 0xFF && ptr[to_consume - 1] == 0xD9) // end of jpeg
+                ESP_LOGI(TAG, "************************************************ IMAGE_COMPLETE");
+
+                receiving_data = false;
+                expected_len = 0;
+                payload_received = 0;
+
+                return;
+            }
+
+            // IMPORTANT: stay in binary mode until fully complete
+            return;
+        }
+
+        // =========================================================
+        // TEXT MODE: locate next frame start
+        // =========================================================
+        if (buffer.empty())
+            return;
+
+        size_t cmd  = buffer.size();
+        size_t resp = buffer.size();
+        size_t data = buffer.size();
+
+        for (size_t i = 0; i < buffer.size(); i++)
+        {
+            if (buffer[i] == '#') { cmd = i; break; }
+            if (buffer[i] == '@') { resp = i; break; }
+            if (buffer[i] == '!') { data = i; break; }
+        }
+
+        size_t first = std::min({cmd, resp, data});
+
+        if (first == buffer.size())
+        {
+            buffer.clear();
+            buffer_offset = 0;
+            return;
+        }
+
+        // drop garbage
+        if (first > 0)
+        {
+            buffer.erase(buffer.begin(),
+                         buffer.begin() + first);
+        }
+
+        if (buffer.empty())
+            return;
+
+        char type = buffer[0];
+
+        // =========================================================
+        // COMMAND: #...#
+        // =========================================================
+        if (type == '#')
+        {
+            size_t end = buffer.find('#', 1);
+            if (end == std::string::npos)
+                return;
+
+            std::string cmd(buffer.begin() + 1,
+                            buffer.begin() + end);
+
+            buffer.erase(buffer.begin(),
+                         buffer.begin() + end + 1);
+
+            on_command(cmd);
+            continue;
+        }
+
+        // =========================================================
+        // RESPONSE: @...@
+        // =========================================================
+        if (type == '@')
+        {
+            size_t end = buffer.find('@', 1);
+            if (end == std::string::npos)
+                return;
+
+            std::string resp(buffer.begin() + 1,
+                             buffer.begin() + end);
+
+            buffer.erase(buffer.begin(),
+                         buffer.begin() + end + 1);
+
+            on_response(resp);
+            continue;
+        }
+
+        // =========================================================
+        // DATA HEADER: !LEN!
+        // =========================================================
+        if (type == '!')
+        {
+            size_t sep = buffer.find('!', 1);
+            if (sep == std::string::npos)
+                return;
+
+            std::string len_str(buffer.begin() + 1,
+                                buffer.begin() + sep);
+
+            expected_len = std::strtoul(len_str.c_str(), nullptr, 10);
+
+            if (expected_len > 200000)
+            {
+                ESP_LOGE(TAG, "invalid length %u", expected_len);
+                buffer.clear();
+                buffer_offset = 0;
+                return;
+            }
+
+            receiving_data = true;
+            payload_received = 0;
+
+            // remove "!LEN!" header
+            buffer.erase(buffer.begin(),
+                         buffer.begin() + sep + 1);
+
+            buffer_offset = 0;
+
+            return;
+        }
+
+        // =========================================================
+        // RESYNC SAFETY
+        // =========================================================
+        buffer.erase(buffer.begin());
+    }
+}
+    */
+
+void UartAPI::process_uart_bytes(const uint8_t* input, size_t len)
+{
+    // Append incoming bytes
+    buffer.insert(buffer.end(), input, input + len);
+
+    // Safety cap ONLY in text mode
+    if (!receiving_data && buffer.size() > MAX_BUFFER)
+    {
+        ESP_LOGW(TAG, "buffer overflow, clearing");
         buffer.clear();
         return;
     }
 
     while (true)
     {
-        // Find next possible frame start
-        size_t cmd = buffer.find('#');
-        size_t resp = buffer.find('@');
-        size_t data = buffer.find('!');
-
-        size_t first = std::string::npos;
-
-        if (cmd != std::string::npos) first = cmd;
-        if (resp != std::string::npos) first = (first == std::string::npos) ? resp : std::min(first, resp);
-        if (data != std::string::npos) first = (first == std::string::npos) ? data : std::min(first, data);
-
-        // No frame markers at all → drop garbage safely
-        if (first == std::string::npos)
+        // =========================================================
+        // BINARY MODE
+        // =========================================================
+        if (receiving_data)
         {
-            buffer.clear();
-            break;
+            if (!jpeg_buffer)
+            {
+                ESP_LOGE(TAG, "NULL jpeg_buffer in binary mode");
+                receiving_data = false;
+                return;
+            }
+
+            size_t available = buffer.size();
+            size_t remaining = expected_len - payload_received;
+
+            if (available == 0 || remaining == 0)
+                return;
+
+            size_t to_consume = std::min(available, remaining);
+
+            // SAFETY: prevent overflow (critical)
+            if (jpeg_write_index + to_consume > expected_len)
+            {
+                ESP_LOGE(TAG, "JPEG overflow detected! idx=%u remaining=%u expected=%u",
+                         jpeg_write_index, (unsigned)to_consume, expected_len);
+
+                free(jpeg_buffer);
+                jpeg_buffer = nullptr;
+                receiving_data = false;
+                expected_len = 0;
+                payload_received = 0;
+                jpeg_write_index = 0;
+
+                buffer.clear();
+                return;
+            }
+
+            const uint8_t* ptr = reinterpret_cast<const uint8_t*>(buffer.data());
+
+            memcpy(jpeg_buffer + jpeg_write_index, ptr, to_consume);
+
+            jpeg_write_index += to_consume;
+            payload_received  += to_consume;
+
+            buffer.erase(buffer.begin(), buffer.begin() + to_consume);
+
+            // =====================================================
+            // COMPLETE FRAME
+            // =====================================================
+            if (payload_received == expected_len)
+            {
+                ESP_LOGI(TAG, "************************************************ IMAGE_COMPLETE %d", payload_received);
+
+                // At this point jpeg_buffer is valid and complete.
+                // (no queue yet — just holding it for future use)
+
+                receiving_data = false;
+
+                // reset state (BUT DO NOT free if you still need it later)
+                jpeg_write_index = 0;
+                expected_len = 0;
+                payload_received = 0;
+
+                free(jpeg_buffer);
+                jpeg_buffer = nullptr;
+
+                return;
+            }
+
+            return;
         }
 
-        // Drop leading garbage
+        // =========================================================
+        // TEXT MODE
+        // =========================================================
+        if (buffer.empty())
+            return;
+
+        size_t cmd  = buffer.size();
+        size_t resp = buffer.size();
+        size_t data = buffer.size();
+
+        for (size_t i = 0; i < buffer.size(); i++)
+        {
+            if (buffer[i] == '#') { cmd = i; break; }
+            if (buffer[i] == '@') { resp = i; break; }
+            if (buffer[i] == '!') { data = i; break; }
+        }
+
+        size_t first = std::min({cmd, resp, data});
+
+        if (first == buffer.size())
+        {
+            buffer.clear();
+            return;
+        }
+
         if (first > 0)
-            buffer.erase(0, first);
+        {
+            buffer.erase(buffer.begin(), buffer.begin() + first);
+        }
 
         if (buffer.empty())
-            break;
+            return;
 
         char type = buffer[0];
 
-        // =========================
+        // =========================================================
         // COMMAND: #...#
-        // =========================
+        // =========================================================
         if (type == '#')
         {
             size_t end = buffer.find('#', 1);
             if (end == std::string::npos)
-                break; // wait for full frame
+                return;
 
-            std::string cmd = buffer.substr(1, end - 1);
-            buffer.erase(0, end + 1);
+            std::string cmd(buffer.begin() + 1, buffer.begin() + end);
+
+            buffer.erase(buffer.begin(), buffer.begin() + end + 1);
 
             on_command(cmd);
             continue;
         }
 
-        // =========================
+        // =========================================================
         // RESPONSE: @...@
-        // =========================
+        // =========================================================
         if (type == '@')
         {
             size_t end = buffer.find('@', 1);
             if (end == std::string::npos)
-                break;
+                return;
 
-            std::string resp = buffer.substr(1, end - 1);
-            buffer.erase(0, end + 1);
+            std::string resp(buffer.begin() + 1, buffer.begin() + end);
+
+            buffer.erase(buffer.begin(), buffer.begin() + end + 1);
 
             on_response(resp);
             continue;
         }
 
-        // =========================
-        // DATA: !LEN!payload
-        // =========================
+        // =========================================================
+        // DATA HEADER: !LEN!
+        // =========================================================
         if (type == '!')
         {
-            size_t sep = buffer.find('!', 1);
-            if (sep == std::string::npos)
-                break;
-
-            std::string len_str = buffer.substr(1, sep - 1);
-
-            // Validate length string
-            if (len_str.empty())
+            // Prevent re-entry corruption
+            if (receiving_data)
             {
-                buffer.erase(0, 1);
-                continue;
+                ESP_LOGE(TAG, "re-entrant binary start detected - dropping");
+                buffer.clear();
+                return;
             }
 
-            size_t data_len = std::strtoul(len_str.c_str(), nullptr, 10);
+            size_t sep = buffer.find('!', 1);
+            if (sep == std::string::npos)
+                return;
 
-            size_t needed = sep + 1 + data_len;
+            std::string len_str(buffer.begin() + 1, buffer.begin() + sep);
 
-            if (buffer.size() < needed)
-                break; // wait for full payload
+            size_t len_val = std::strtoul(len_str.c_str(), nullptr, 10);
 
-            const uint8_t* data_ptr =
-                reinterpret_cast<const uint8_t*>(buffer.data() + sep + 1);
+            if (len_val == 0 || len_val > 200000)
+            {
+                ESP_LOGE(TAG, "invalid length %u", len_val);
+                buffer.clear();
+                return;
+            }
 
-            on_data(data_ptr, data_len);
+            uint8_t* new_buf = (uint8_t*)malloc(len_val);
+            if (!new_buf)
+            {
+                ESP_LOGE(TAG, "malloc failed (%u bytes)", len_val);
+                buffer.clear();
+                return;
+            }
 
-            buffer.erase(0, needed);
-            continue;
+            jpeg_buffer = new_buf;
+            expected_len = len_val;
+            jpeg_write_index = 0;
+            payload_received = 0;
+            receiving_data = true;
+
+            buffer.erase(buffer.begin(), buffer.begin() + sep + 1);
+
+            return;
         }
 
-        // =========================
-        // Unknown byte → resync safely
-        // =========================
-        buffer.erase(0, 1);
+        // =========================================================
+        // RESYNC SAFETY
+        // =========================================================
+        buffer.erase(buffer.begin());
     }
 }
