@@ -63,8 +63,8 @@ void UartAPI::release_buffer(JpegBuffer* buf)
 
 UartAPI::UartAPI() {}
 
-esp_err_t UartAPI::init(int uart_num, int txPin, int rxPin, const QueueHandle_t jpegQueue) {
-    _uart_num = static_cast<uart_port_t>(uart_num);
+esp_err_t UartAPI::init(const UARTConfig& config, const QueueHandle_t jpegQueue) {
+    _uart_num = static_cast<uart_port_t>(config.uart_num);
     _jpegQueue = jpegQueue;
     _active_jpeg = nullptr;
 
@@ -85,11 +85,11 @@ esp_err_t UartAPI::init(int uart_num, int txPin, int rxPin, const QueueHandle_t 
         err = uart_param_config(_uart_num, &uart_config);
         if (ESP_OK == err) {
             err = uart_set_pin(_uart_num,
-                                txPin,
-                                rxPin,
+                                config.tx,
+                                config.rx,
                                 UART_PIN_NO_CHANGE,
                                 UART_PIN_NO_CHANGE);
-            gpio_set_pull_mode(static_cast<gpio_num_t>(rxPin), GPIO_PULLUP_ONLY);
+            gpio_set_pull_mode(static_cast<gpio_num_t>(config.rx), GPIO_PULLUP_ONLY);
             status = ESP_OK;
             ESP_LOGI(TAG, "UART ready");
             if (ESP_OK != err) {
