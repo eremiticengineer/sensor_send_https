@@ -25,6 +25,7 @@ struct JpegConsumerContext
 {
     QueueHandle_t queue;
     UartAPI* uart;
+    HttpsClient* client;
 };
 
 static void jpeg_consumer_task(void* arg)
@@ -39,7 +40,16 @@ static void jpeg_consumer_task(void* arg)
         {
             ESP_LOGI("JPEG", "Received frame len=%u", pkt.len);
 
-            // Process pkt.data here
+            std::string content;
+            std::string headers;
+            ctx->client->post(
+                CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_PATH,
+                CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_API_KEY,
+                pkt.data,
+                pkt.len,
+                "image/jpeg",
+                &content,
+                &headers);
 
             ctx->uart->release_buffer(pkt.buf);
         }
@@ -128,6 +138,7 @@ extern "C" void app_main()
     static JpegConsumerContext jpegContext;
     jpegContext.queue = jpegQueue;
     jpegContext.uart = &uartAPI;
+    jpegContext.client = &client;
 
     xTaskCreate(
         jpeg_consumer_task,
@@ -153,11 +164,14 @@ extern "C" void app_main()
         ESP_LOGE("SENSOR_SEND", "Failed to connect to server");
         return;
     }
-    bool response = client.post(CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_PATH,
+    bool response = client.post(
+        CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_PATH,
         CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_API_KEY,
         reinterpret_cast<const uint8_t*>(POST_DATA.data()),
         POST_DATA.size(),
-        &content, &headers);
+        "application/json",
+        &content,
+        &headers);
     client.disconnect();
     ESP_LOGI("POST", "POSTED with response %s", response ? "true" : "false");
     ESP_LOGI("POST", "content: %s", content.c_str());
