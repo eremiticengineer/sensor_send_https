@@ -19,8 +19,14 @@ class UartAPI {
   };
 
 public:
+  struct UARTConfig {
+    int uart_num;
+    int rx;
+    int tx;
+  };
+
   UartAPI();
-  esp_err_t init(int uart_num, int txPin, int rxPin, const QueueHandle_t jpegQueue);
+  esp_err_t init(const UARTConfig& config, const QueueHandle_t jpegQueue);
   void start();
   void run();
   void request(const std::string& request);
