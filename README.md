@@ -69,6 +69,16 @@ sdkconfig.defaults
 ```
 contains project defaults.
 
+## Configure UART
+The defaults are for an ESP32-S3
+```
+idf.py menuconfig
+Components -> SensorSend Configuration
+  -> The number of the UART to use
+  -> The UART TX pin GPIO number
+  -> The UART RX pin GPIO number
+```
+
 ## Configure WifiClient
 ```
 idf.py menuconfig
