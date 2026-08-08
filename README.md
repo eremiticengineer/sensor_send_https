@@ -38,3 +38,7 @@ Components -> SensorSend Configuration
 ```
 esptool --port /dev/ttyUSB0 flash-id
 ```
+
+
+https://docs.espressif.com/projects/esp-idf/en/v4.3.3/esp32/contribute/style-guide.html
+https://docs.espressif.com/projects/esp-idf/en/v4.1.1/contribute/documenting-code.html
