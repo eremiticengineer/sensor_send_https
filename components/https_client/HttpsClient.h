@@ -13,16 +13,16 @@ public:
         std::string* out_body = nullptr,
         std::string* headers = nullptr);
 
-    bool post(const char* path,
+    bool post(
+        const char* path,
         const char* apiKey,
         const uint8_t* data,
         size_t dataLength,
+        const char* contentType,
         std::string* out_body,
         std::string* out_headers);
 
 private:
-    //bool write_request(const char* request);
-
     const char* server_;
     const char* port_;
     const char* userAgent_;
