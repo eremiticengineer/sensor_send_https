@@ -21,19 +21,27 @@ static QueueHandle_t jpegQueue = nullptr;
 
 static const std::string POST_DATA = "{\"SensorSend\":\"https_mbedtls_espidf6\"}";
 
+struct JpegConsumerContext
+{
+    QueueHandle_t queue;
+    UartAPI* uart;
+};
+
 static void jpeg_consumer_task(void* arg)
 {
-    QueueHandle_t q = static_cast<QueueHandle_t>(arg);
+    auto* ctx = static_cast<JpegConsumerContext*>(arg);
 
     UartAPI::JpegPacket pkt;
 
     while (true)
     {
-        if (xQueueReceive(q, &pkt, portMAX_DELAY) == pdTRUE)
+        if (xQueueReceive(ctx->queue, &pkt, portMAX_DELAY) == pdTRUE)
         {
             ESP_LOGI("JPEG", "Received frame len=%u", pkt.len);
 
-            free(pkt.data);
+            // Process pkt.data here
+
+            ctx->uart->release_buffer(pkt.buf);
         }
     }
 }
@@ -115,20 +123,25 @@ extern "C" void app_main()
         return;
     }
 
+    UartAPI uartAPI;
+
+    static JpegConsumerContext jpegContext;
+    jpegContext.queue = jpegQueue;
+    jpegContext.uart = &uartAPI;
+
     xTaskCreate(
         jpeg_consumer_task,
         "jpeg_consumer",
         4096,
-        jpegQueue, // pass the message queue to use
+        &jpegContext,
         5,
         nullptr
     );
     
-    UartAPI uartAPI;
-    uartAPI.init(2, 17, 16, jpegQueue);
+    // ESP32-S3
+    uartAPI.init(1, 17, 18, jpegQueue);
     uartAPI.start();
 
-    /*
     // POST a file to the server over https
     ESP_LOGI("POST", "POSTING...");
     content.clear();
@@ -146,16 +159,16 @@ extern "C" void app_main()
     ESP_LOGI("POST", "POSTED with response %s", response ? "true" : "false");
     ESP_LOGI("POST", "content: %s", content.c_str());
     ESP_LOGI("POST", "headers: %s", headers.c_str());
-    */
 
     while (1) {
-        uartAPI.request("#ok#");
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // uartAPI.request("#ok#");
+        // vTaskDelay(pdMS_TO_TICKS(1000));
 
-        uartAPI.request("#sdfsdfsdf#");
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        // uartAPI.request("#sdfsdfsdf#");
+        // vTaskDelay(pdMS_TO_TICKS(1000));
         
         uartAPI.request("#i:c#");
         vTaskDelay(pdMS_TO_TICKS(10000));
+        ESP_LOGI(TAG, "looping");
     }
 }
