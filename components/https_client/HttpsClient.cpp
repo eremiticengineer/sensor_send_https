@@ -153,47 +153,58 @@ esp_err_t HttpsClient::get(const char* path,
     return ESP_OK;
 }
 
-// Simple POST request with JSON
-bool HttpsClient::post(const char* path, const char* apiKey, const uint8_t* data,
-    size_t dataLength, std::string* out_body, std::string* out_headers) {
+bool HttpsClient::post(
+    const char* path,
+    const char* apiKey,
+    const uint8_t* data,
+    size_t dataLength,
+    const char* contentType,
+    std::string* out_body,
+    std::string* out_headers)
+{
     if (!connected_) return false;
 
     char headers[512];
-    int headersLength = snprintf(headers, sizeof(headers),
-                    "POST %s HTTP/1.0\r\n"
-                    "Host: %s\r\n"
-                    "User-Agent: %s\r\n"
-                    "Content-Type: application/json\r\n"
-                    "Content-Length: %d\r\n"
-                    "X-API-KEY: %s\r\n"
-                    "\r\n",
-                    path,
-                    server_,
-                    userAgent_,
-                    (unsigned)dataLength,
-                    apiKey);
 
-    ESP_LOGI(TAG, "LENGTH: %d", headersLength);
+    int headersLength = snprintf(
+        headers,
+        sizeof(headers),
+        "POST %s HTTP/1.0\r\n"
+        "Host: %s\r\n"
+        "User-Agent: %s\r\n"
+        "Content-Type: %s\r\n"
+        "Content-Length: %u\r\n"
+        "X-API-KEY: %s\r\n"
+        "\r\n",
+        path,
+        server_,
+        userAgent_,
+        contentType,
+        (unsigned)dataLength,
+        apiKey);
 
     if (headersLength <= 0 || headersLength >= (int)sizeof(headers)) {
         ESP_LOGE(TAG, "POST request too large for buffer");
         return false;
     }
 
-    // Send the headers...
-    bool result = write_request((const uint8_t*)headers, headersLength,
-        out_body, out_headers, HttpPhase::HeadersOnly);
-    ESP_LOGI(TAG, "POST headers result = %d", result);
+    bool result = write_request(
+        reinterpret_cast<const uint8_t*>(headers),
+        headersLength,
+        out_body,
+        out_headers,
+        HttpPhase::HeadersOnly);
 
-    // ...then the body
-    result = write_request((const uint8_t*)data, dataLength,
-        out_body, out_headers, HttpPhase::FullRequest);
-    ESP_LOGI(TAG, "POST body result = %d", result);
+    if (!result)
+        return false;
 
-    return result;
+    return write_request(
+        data,
+        dataLength,
+        out_body,
+        out_headers,
+        HttpPhase::FullRequest);
 }
-
-
 
 bool write_request(const uint8_t* request,
                    size_t len,
