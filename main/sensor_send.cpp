@@ -139,7 +139,12 @@ extern "C" void app_main()
     );
     
     // ESP32-S3
-    uartAPI.init(1, 17, 18, jpegQueue);
+    //uartAPI.init(1, 17, 18, jpegQueue);
+    uartAPI.init({
+        .uart_num = CONFIG_SENSOR_SEND_UART_NUM,
+        .rx = CONFIG_SENSOR_SEND_UART_RX_PIN,
+        .tx = CONFIG_SENSOR_SEND_UART_TX_PIN
+    }, jpegQueue);
     uartAPI.start();
 
     // POST a file to the server over https
