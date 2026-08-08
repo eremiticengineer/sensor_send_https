@@ -22,6 +22,23 @@ idf.py menuconfig
 Component config
   -> ESP PSRAM
      -> Support for external, SPI-connected RAM
+       -> SPI RAM config
+
+```
+change:
+```
+Mode (QUAD/OCT) of SPI RAM chip in use (Quad Mode PSRAM) (default value)
+```
+to:
+```
+Octal Mode PSRAM
+```
+
+to avoid the runtime error:
+```
+E (286) quad_psram: PSRAM chip is not connected, or wrong PSRAM line mode^M
+E cpu_start: Failed to init external RAM!
+abort() was called at PC 0x4200332f on core 0
 ```
 
 ## sdkconfig defaults
