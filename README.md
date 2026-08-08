@@ -14,6 +14,16 @@ Developed on a Raspberry Pi 4b+.
 * ESP-IDF v6.0.0+
 * An ESP32 board with onboard wifi.
 
+## Enable PSRAM
+PSRAM needs to be enabled in order to use the JPEG pools:
+```
+idf.py menuconfig
+
+Component config
+  -> ESP PSRAM
+     -> Support for external, SPI-connected RAM
+```
+
 ## sdkconfig defaults
 ```
 sdkconfig.defaults
