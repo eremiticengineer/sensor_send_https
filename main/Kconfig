@@ -36,4 +36,21 @@ config SENSOR_SEND_OTA_PATH
     help
       Enter the url of the ota information file
 
+config SENSOR_SEND_UART_NUM
+    int "The number of the UART to use"
+    default "1"
+    help
+      Enter the number of the UART to use
+
+config SENSOR_SEND_UART_TX_PIN
+    int "The UART TX pin GPIO number"
+    default "17"
+    help
+      Enter the UART TX pin GPIO number
+
+config SENSOR_SEND_UART_RX_PIN
+    int "The UART RX pin GPIO number"
+    default "18"
+    help
+      Enter the UART RX pin GPIO number
 endmenu
