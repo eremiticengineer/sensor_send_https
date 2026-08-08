@@ -41,6 +41,28 @@ E cpu_start: Failed to init external RAM!
 abort() was called at PC 0x4200332f on core 0
 ```
 
+## Enable built-in USB serial port for picocom
+After flashing picocom will work but won't work after just plugging into USB. To get /dev/ttyACM0:
+```
+idf.py menuconfig
+
+Component config
+  -> ESP-STDIO
+     -> Channel for console output (Default: UART0) (default value)
+       -> USB Serial/JTAG Controller
+```
+
+## Monitor serial output with esp-idf
+To monitor serial output from the esp32-s3 with a system restart:
+```
+idf.py monitor -p /dev/ttyACM0 2>&1 | tee esp32s3.log
+```
+
+To monitor serial output from the esp32-s3 without a system restart:
+```
+idf.py monitor --no-reset -p /dev/ttyACM0 2>&1 | tee esp32s3.log
+```
+
 ## sdkconfig defaults
 ```
 sdkconfig.defaults
