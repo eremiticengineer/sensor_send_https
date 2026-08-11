@@ -195,8 +195,10 @@ bool HttpsClient::post(
         out_headers,
         HttpPhase::HeadersOnly);
 
-    if (!result)
+    if (!result) {
+        ESP_LOGE(TAG, "cannot write_request");
         return false;
+    }
 
     return write_request(
         data,
