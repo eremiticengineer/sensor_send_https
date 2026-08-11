@@ -42,7 +42,13 @@ static void jpeg_consumer_task(void* arg)
 
             std::string content;
             std::string headers;
-            ctx->client->post(
+
+            if (!ctx->client->connect()) {
+                ESP_LOGE("SENSOR_SEND", "Failed to connect to image server");
+                return;
+            }
+
+            bool response = ctx->client->post(
                 CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_PATH,
                 CONFIG_SENSOR_SEND_WEB_SERVER_HTTPS_POST_API_KEY,
                 pkt.data,
@@ -50,6 +56,12 @@ static void jpeg_consumer_task(void* arg)
                 "image/jpeg",
                 &content,
                 &headers);
+
+            ESP_LOGI(TAG, "POSTED image with response %s", response ? "true" : "false");
+            ESP_LOGI(TAG, "content: %s", content.c_str());
+            ESP_LOGI(TAG, "headers: %s", headers.c_str());
+
+            ctx->client->disconnect();
 
             ctx->uart->release_buffer(pkt.buf);
         }
